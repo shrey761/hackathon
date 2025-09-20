@@ -1,192 +1,275 @@
 import streamlit as st
-import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib.pyplot as plt
+import zipfile
 from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
-from app.resume_parser import parse_resume
+# Import from app folder
+from app.resume_parser import extract_text_from_pdf_or_docx
 from app.jd_parser import parse_jd
 from app.scoring import compute_similarity
 from app.feedback import generate_feedback
+from app.database import save_result, load_results
 
 
-# -------------------- PAGE CONFIG --------------------
-st.set_page_config(
-    page_title="AI Resume Relevance Checker",
-    page_icon="📊",
-    layout="wide"
+
+# ===============================
+# Verdict Function
+# ===============================
+def get_verdict(score_percent: float) -> str:
+    if score_percent >= 70:
+        return "✅ High Suitability"
+    elif score_percent >= 40:
+        return "🟡 Medium Suitability"
+    else:
+        return "❌ Low Suitability"
+
+
+# ===============================
+# PDF Generation
+# ===============================
+def generate_pdf_report(resume_name, score, verdict, details, feedback):
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, height - 50, "Resume Relevance Report")
+
+    c.setFont("Helvetica", 12)
+    c.drawString(50, height - 100, f"Resume: {resume_name}")
+    c.drawString(50, height - 120, f"Relevance Score: {score if score else 'N/A'}%")
+    c.drawString(50, height - 140, f"Suitability Verdict: {verdict or 'N/A'}")
+
+    # Defensive handling
+    details = details or {}
+    feedback = feedback or "No feedback generated."
+
+    # Must-Have Covered
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(50, height - 180, "✅ Must-Have Skills (Covered):")
+    c.setFont("Helvetica", 11)
+    c.drawString(70, height - 200, ", ".join(details.get("covered_must_have", [])) or "None")
+
+    # Missing Must-Have
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(50, height - 230, "❌ Missing Must-Have Skills:")
+    c.setFont("Helvetica", 11)
+    c.drawString(70, height - 250, ", ".join(details.get("missing_must_have", [])) or "None")
+
+    # Good-to-Have Covered
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(50, height - 280, "🌟 Good-to-Have Skills (Covered):")
+    c.setFont("Helvetica", 11)
+    c.drawString(70, height - 300, ", ".join(details.get("covered_good_to_have", [])) or "None")
+
+    # Missing Good-to-Have
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(50, height - 330, "⚠ Missing Good-to-Have Skills:")
+    c.setFont("Helvetica", 11)
+    c.drawString(70, height - 350, ", ".join(details.get("missing_good_to_have", [])) or "None")
+
+    # Feedback
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(50, height - 380, "💡 Feedback:")
+    c.setFont("Helvetica", 11)
+    text_obj = c.beginText(70, height - 400)
+    for line in feedback.split("\n"):
+        text_obj.textLine(line.strip())
+    c.drawText(text_obj)
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+
+# ===============================
+# Streamlit App
+# ===============================
+st.set_page_config(page_title="Resume Relevance Checker", layout="wide")
+
+# Sidebar
+st.sidebar.title("⚙ Options")
+st.sidebar.subheader("About")
+st.sidebar.info(
+    "This tool analyzes candidate resumes against a job description. "
+    "It highlights missing must-have and good-to-have skills, "
+    "computes a relevance score, gives a suitability verdict, "
+    "provides actionable feedback, and stores results for future access."
 )
 
-
-# -------------------- SIDEBAR --------------------
-st.sidebar.title("⚙ Options")
-st.sidebar.success("An AI-powered Resume–JD Matching Tool 🚀")
-
+st.sidebar.subheader("How to Use")
 st.sidebar.markdown("""
-### 📖 How to use
-1. Paste the *Job Description*.  
-2. Upload the *Resume (PDF/DOCX)*.  
-3. Click *Analyze Resume*.  
-
-👉 The tool extracts *skills, education & experience, compares with the JD, and generates **smart feedback*.
+1. 📋 Paste the Job Description  
+2. 📂 Upload Resume(s) in PDF/DOCX  
+3. 🔍 Click *Analyze Resume(s)*  
+4. 📊 View detailed results or batch comparison  
+5. 💾 Download reports (PDF, CSV, ZIP)  
+6. 📊 Use Dashboard to see stored results  
 """)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("📌 About")
-st.sidebar.info("Built for hackathons 🎯 | Showcases NLP-based resume screening")
+st.title("📄 Automated Resume Relevance Checker")
+
+jd_text = st.text_area("Paste Job Description Here", height=200)
+uploaded_files = st.file_uploader("📂 Upload Resume(s)", type=["pdf", "docx"], accept_multiple_files=True)
 
 
-# -------------------- MAIN HEADER --------------------
-st.markdown(
-    """
-    <h1 style='text-align: center; color: #2C3E50;'>
-        📊 Automated Resume Relevance Checker
-    </h1>
-    <p style='text-align: center; color: gray; font-size:18px;'>
-        Match resumes with job descriptions & get actionable improvement tips
-    </p>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# -------------------- INPUTS --------------------
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    jd_text = st.text_area("📄 Paste Job Description", height=220)
-
-with col2:
-    uploaded_file = st.file_uploader(
-        "📂 Upload Resume",
-        type=["pdf", "docx"],
-        help="Accepted formats: PDF, DOCX"
-    )
-
-
-# -------------------- ANALYZE --------------------
-if st.button("🔎 Analyze Resume", use_container_width=True):
-    if not jd_text or not uploaded_file:
-        st.error("⚠ Please provide both a Job Description and a Resume.")
+if st.button("🔍 Analyze Resume(s)"):
+    if not jd_text.strip():
+        st.error("❌ Please paste a job description.")
+    elif not uploaded_files:
+        st.error("❌ Please upload at least one resume.")
     else:
         try:
-            # --- Extract resume text ---
-            resume_text = parse_resume(uploaded_file)
-
-            # --- Parse JD ---
             jd_text_only, must_have_skills, good_to_have_skills = parse_jd(jd_text)
+        except Exception as e:
+            st.error(f"⚠ JD Parser Error: {e}")
+            st.stop()
 
-            # --- Compute relevance ---
-            score, details = compute_similarity(
-                resume_text, jd_text_only, must_have_skills, good_to_have_skills
-            )
+        results, pdf_files = [], []
 
-            # --- Generate feedback ---
-            feedback = generate_feedback(
-                resume_text,
-                jd_text_only,
-                details.get("missing_must_have", []),
-                details.get("missing_good_to_have", [])
-            )
+        for uploaded_file in uploaded_files:
+                try:
+                    resume_text = extract_text_from_pdf_or_docx(uploaded_file)
+                    score, details = compute_similarity(resume_text, jd_text_only)
+                    score_percent = round(float(score) * 100, 2)
+                    verdict = get_verdict(score_percent)
 
-            # -------------------- OUTPUT --------------------
-            st.markdown("## 📈 Results")
+                    feedback = generate_feedback(
+                        resume_text, jd_text_only, must_have_skills, good_to_have_skills, details
+                    )
 
-            # Relevance score
-            st.metric(
-                label="Relevance Score",
-                value=f"{score:.2f}%",
-                delta="Higher is better"
-            )
+                    results.append({
+                        "Resume": uploaded_file.name,
+                        "Relevance Score (%)": score_percent,
+                        "Verdict": verdict,
+                        "Missing Must-Have": ", ".join(details.get("missing_must_have", [])) or "None",
+                        "Missing Good-to-Have": ", ".join(details.get("missing_good_to_have", [])) or "None",
+                        "Feedback": feedback,
+                    })
 
-            # Skills section
-            col_a, col_b = st.columns(2)
+                    save_result(uploaded_file.name, score_percent, verdict, feedback)
 
-            with col_a:
-                st.markdown("### ✅ Must-Have Skills (Covered)")
-                st.success(", ".join(details.get("must_have_covered", [])) or "None")
+                    try:
+                        pdf_buffer = generate_pdf_report(
+                            uploaded_file.name,
+                            score_percent,
+                            verdict,
+                            details,
+                            feedback
+                        )
+                        pdf_files.append((
+                            uploaded_file.name.replace(".pdf", "").replace(".docx", "") + "_report.pdf",
+                            pdf_buffer
+                        ))
+                    except Exception as e:
+        # Always generate a fallback PDF explaining the error
+                        error_feedback = f"Could not generate full report. Error: {str(e)}"
+                        pdf_buffer = generate_pdf_report(
+                            uploaded_file.name,
+                            score_percent if 'score_percent' in locals() else "N/A",
+                            verdict if 'verdict' in locals() else "Error",
+                            {},
+                            error_feedback
+                        )
+                        pdf_files.append((
+                            uploaded_file.name.replace(".pdf", "").replace(".docx", "") + "_error_report.pdf",
+                            pdf_buffer
+                        ))
+                except Exception as e:
+                    results.append({
+                        "Resume":uploaded_file.name,
+                        "Relevance Score(%)":"Error",
+                        "Verdict":"Error",
+                        "Feedback":f"Could not process{uploaded_file.name}:{e}"
+                    })
+        # ===============================
+        # Single Resume Mode
+        # ===============================
+        if len(uploaded_files) == 1:
+            res = results[0]
+            st.header("📊 Analysis Results")
 
-                st.markdown("### ❌ Missing Must-Have Skills")
-                st.error(", ".join(details.get("missing_must_have", [])) or "None")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Relevance Score", f"{res['Relevance Score (%)']}%", delta="Higher is better")
+            with col2:
+                st.metric("Suitability Verdict", res["Verdict"])
 
-            with col_b:
-                st.markdown("### 🌟 Good-to-Have Skills (Covered)")
-                st.info(", ".join(details.get("good_to_have_covered", [])) or "None")
-
-                st.markdown("### ⚠ Missing Good-to-Have Skills")
-                st.warning(", ".join(details.get("missing_good_to_have", [])) or "None")
-
-            # -------------------- VISUALIZATION --------------------
-            st.markdown("### 📊 Skill Coverage Overview")
-
-            skill_data = {
-                "Category": [
-                    "Must-Have Covered", "Must-Have Missing",
-                    "Good-to-Have Covered", "Good-to-Have Missing"
-                ],
-                "Count": [
-                    len(details.get("must_have_covered", [])),
-                    len(details.get("missing_must_have", [])),
-                    len(details.get("good_to_have_covered", [])),
-                    len(details.get("missing_good_to_have", [])),
-                ]
-            }
-
-            df = pd.DataFrame(skill_data)
-
+            # Skill coverage chart
+            st.subheader("📊 Skill Coverage Overview")
+            categories = ["Must-Have Covered", "Must-Have Missing", "Good-to-Have Covered", "Good-to-Have Missing"]
+            values = [
+                len(details.get("covered_must_have", [])),
+                len(details.get("missing_must_have", [])),
+                len(details.get("covered_good_to_have", [])),
+                len(details.get("missing_good_to_have", [])),
+            ]
             fig, ax = plt.subplots(figsize=(6, 4))
-            ax.barh(df["Category"], df["Count"], color=["#2ECC71", "#E74C3C", "#3498DB", "#F39C12"])
-            ax.set_xlabel("Number of Skills")
+            ax.bar(categories, values, color=["green", "red", "blue", "orange"])
+            ax.set_ylabel("Number of Skills")
             ax.set_title("Resume vs JD Skill Coverage")
+            plt.xticks(rotation=20)
             st.pyplot(fig)
 
-            # -------------------- FEEDBACK --------------------
-            st.markdown("## 💡 Feedback for Candidate")
+            st.subheader("💡 Actionable Feedback")
+            for line in res["Feedback"].split("\n\n"):
+                st.info(line)
 
-            for tip in feedback:
-                st.write(f"- {tip}")
+            # PDF download
+            if pdf_files:
+               pdf_name, pdf_buffer = pdf_files[0]
+               st.download_button("📥 Download PDF Report", data=pdf_buffer, file_name=pdf_name, mime="application/pdf")
+            else:
+                st.warning("⚠ No PDF report was generated for this resume.")
 
-            # -------------------- PDF EXPORT --------------------
-            st.markdown("## 📥 Download Report")
+        # ===============================
+        # Batch Mode
+        # ===============================
+        else:
+            st.header("📂 Batch Results")
+            df = pd.DataFrame(results)
+            st.dataframe(df, use_container_width=True)
 
-            buffer = BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=A4)
-            styles = getSampleStyleSheet()
-            elements = []
+            # CSV download
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button("💾 Download Results as CSV", csv, "batch_results.csv", "text/csv")
 
-            elements.append(Paragraph("Resume Relevance Report", styles["Title"]))
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph(f"Relevance Score: {score:.2f}%", styles["Heading2"]))
+            # Bar chart comparison
+            st.subheader("📊 Resume Comparison by Score")
+            fig, ax = plt.subplots(figsize=(8, 5))
+            ax.barh(df["Resume"], df["Relevance Score (%)"], color="skyblue")
+            ax.set_xlabel("Relevance Score (%)")
+            ax.set_title("Resume Relevance Comparison")
+            st.pyplot(fig)
 
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("Must-Have Skills Covered:", styles["Heading3"]))
-            elements.append(Paragraph(", ".join(details.get("must_have_covered", [])) or "None", styles["Normal"]))
+            # ZIP download of PDFs
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w") as zipf:
+                for pdf_name, pdf_buffer in pdf_files:
+                    zipf.writestr(pdf_name, pdf_buffer.read())
+            zip_buffer.seek(0)
+            st.download_button("📥 Download All PDF Reports (ZIP)", data=zip_buffer, file_name="all_reports.zip", mime="application/zip")
 
-            elements.append(Paragraph("Missing Must-Have Skills:", styles["Heading3"]))
-            elements.append(Paragraph(", ".join(details.get("missing_must_have", [])) or "None", styles["Normal"]))
 
-            elements.append(Paragraph("Good-to-Have Skills Covered:", styles["Heading3"]))
-            elements.append(Paragraph(", ".join(details.get("good_to_have_covered", [])) or "None", styles["Normal"]))
+# ===============================
+# Dashboard View
+# ===============================
+if st.sidebar.button("📊 View Stored Results"):
+    st.subheader("📊 Stored Results Dashboard")
+    df = load_results()
+    if not df.empty:
+        st.dataframe(df)
 
-            elements.append(Paragraph("Missing Good-to-Have Skills:", styles["Heading3"]))
-            elements.append(Paragraph(", ".join(details.get("missing_good_to_have", [])) or "None", styles["Normal"]))
-
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("Feedback:", styles["Heading2"]))
-            for tip in feedback:
-                elements.append(Paragraph(f"- {tip}", styles["Normal"]))
-
-            doc.build(elements)
-            pdf_data = buffer.getvalue()
-
-            st.download_button(
-                label="⬇ Download PDF Report",
-                data=pdf_data,
-                file_name="resume_relevance_report.pdf",
-                mime="application/pdf"
-            )
-
-        except Exception as e:
-            st.error(f"⚠ Error: {e}")
+        # Chart
+        st.subheader("📊 Historical Score Distribution")
+        fig, ax = plt.subplots(figsize=(7, 4))
+        ax.hist(df["score"], bins=10, color="teal", alpha=0.7)
+        ax.set_xlabel("Relevance Score (%)")
+        ax.set_ylabel("Number of Resumes")
+        st.pyplot(fig)
+    else:
+        st.info("No results stored yet.")

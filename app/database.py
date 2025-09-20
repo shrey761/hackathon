@@ -1,21 +1,36 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+# app/database.py
+import sqlite3
+import pandas as pd   # ✅ Fix: Added missing pandas import
 
-# SQLite local database (file)
-SQLALCHEMY_DATABASE_URL = "sqlite:///./resumes.db"
+DB_PATH = "results.db"
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# ===============================
+# Save results into SQLite
+# ===============================
+def save_result(resume_name, score, verdict, feedback):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resume_name TEXT,
+            score REAL,
+            verdict TEXT,
+            feedback TEXT
+        )
+    """)
+    cursor.execute("""
+        INSERT INTO results (resume_name, score, verdict, feedback)
+        VALUES (?, ?, ?, ?)
+    """, (resume_name, score, verdict, feedback))
+    conn.commit()
+    conn.close()
 
-Base = declarative_base()
-
-# Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# ===============================
+# Load results into DataFrame
+# ===============================
+def load_results():
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query("SELECT * FROM results", conn)  # ✅ Needs pandas
+    conn.close()
+    return df

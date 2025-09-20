@@ -1,29 +1,33 @@
-import PyPDF2
 import docx2txt
-import os
+import fitz  # PyMuPDF
 
-def parse_resume(file):
-    """
-    Extract text from uploaded resume file (.pdf or .docx).
-    """
-    text = ""
-
-    # Handle PDF resumes
-    if file.name.lower().endswith(".pdf"):
-        pdf_reader = PyPDF2.PdfReader(file)
-        for page in pdf_reader.pages:
-            text += page.extract_text() or ""
-
-    # Handle DOCX resumes
-    elif file.name.lower().endswith(".docx"):
-        # docx2txt needs a file path, so save temporarily
-        temp_path = "temp_resume.docx"
-        with open(temp_path, "wb") as f:
-            f.write(file.getbuffer())
-        text = docx2txt.process(temp_path)
-        os.remove(temp_path)
-
+def extract_text_from_pdf_or_docx(uploaded_file):
+    if uploaded_file.name.endswith(".pdf"):
+        text = ""
+        pdf = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+        for page in pdf:
+            text += page.get_text("text")
+        return text
+    elif uploaded_file.name.endswith(".docx"):
+        return docx2txt.process(uploaded_file)
     else:
-        raise ValueError("Unsupported file format. Please upload .pdf or .docx file.")
+        raise ValueError("Unsupported file type")
 
-    return text.strip()
+def parse_resume(resume_text):
+    """Extract simple details like skills, projects, certifications"""
+    skills = []
+    certifications = []
+    projects = []
+
+    lines = resume_text.split("\n")
+    for line in lines:
+        if "project" in line.lower():
+            projects.append(line.strip())
+        if "certified" in line.lower() or "certificate" in line.lower():
+            certifications.append(line.strip())
+
+    return {
+        "skills": skills,
+        "certifications": certifications,
+        "projects": projects
+    }
