@@ -19,4 +19,4 @@ PyPDF2
 docx2txt
 matplotlib
 wordcloud
-scikit-learn
+reportlab
