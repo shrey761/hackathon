@@ -17,6 +17,11 @@ streamlit
 spacy
 PyPDF2
 docx2txt
+requests
+nltk
+pdfminer.six
+sentence-transformers
+
 matplotlib
 wordcloud
 reportlab
