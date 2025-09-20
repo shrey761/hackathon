@@ -1,17 +1,25 @@
+# app/scoring.py
+
 from sklearn.feature_extraction.text import TfidfVectorizer
-from app.embeddings import semantic_score
+from sklearn.metrics.pairwise import cosine_similarity
 
-def hard_score(resume_text: str, jd_text: str) -> float:
-    vectorizer = TfidfVectorizer(stop_words="english")
-    tfidf = vectorizer.fit_transform([resume_text, jd_text])
-    score = (tfidf * tfidf.T).A[0,1]  # cosine sim from tfidf
-    return round(score * 100, 2)
+def compute_similarity(resume_text: str, jd_info: dict):
+    """
+    Compare resume text against job description (jd_info).
+    Returns: (similarity %, missing_skills)
+    """
+    jd_text = jd_info.get("text", "")
+    must_have_skills = jd_info.get("must_have", [])
 
-def compute_hybrid_score(resume_text: str, jd_text: str):
-    hs = hard_score(resume_text, jd_text)
-    ss = semantic_score(resume_text, jd_text)
-    relevance = round(0.55 * hs + 0.45 * ss, 2)
+    # TF-IDF similarity
+    vectorizer = TfidfVectorizer().fit_transform([resume_text, jd_text])
+    similarity = cosine_similarity(vectorizer[0:1], vectorizer[1:2])[0][0]
 
-    verdict = "High Fit" if relevance >= 75 else "Medium Fit" if relevance >= 50 else "Low Fit"
+    # Check missing skills
+    missing_skills = []
+    resume_lower = resume_text.lower()
+    for skill in must_have_skills:
+        if skill.lower() not in resume_lower:
+            missing_skills.append(skill)
 
-    return {"hard_score": hs, "semantic_score": ss, "relevance": relevance, "verdict": verdict}
+    return similarity * 100, missing_skills

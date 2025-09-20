@@ -1,14 +1,29 @@
-import pdfplumber, docx2txt, tempfile
+import PyPDF2
+import docx2txt
+import os
 
-def extract_text(file):
-    if file.filename.endswith(".pdf"):
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(file.file.read())
-            with pdfplumber.open(tmp.name) as pdf:
-                return "\n".join([p.extract_text() or "" for p in pdf.pages])
-    elif file.filename.endswith(".docx"):
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-            tmp.write(file.file.read())
-            return docx2txt.process(tmp.name)
+def parse_resume(file):
+    """
+    Extract text from uploaded resume file (.pdf or .docx).
+    """
+    text = ""
+
+    # Handle PDF resumes
+    if file.name.lower().endswith(".pdf"):
+        pdf_reader = PyPDF2.PdfReader(file)
+        for page in pdf_reader.pages:
+            text += page.extract_text() or ""
+
+    # Handle DOCX resumes
+    elif file.name.lower().endswith(".docx"):
+        # docx2txt needs a file path, so save temporarily
+        temp_path = "temp_resume.docx"
+        with open(temp_path, "wb") as f:
+            f.write(file.getbuffer())
+        text = docx2txt.process(temp_path)
+        os.remove(temp_path)
+
     else:
-        return "Unsupported file type"
+        raise ValueError("Unsupported file format. Please upload .pdf or .docx file.")
+
+    return text.strip()
