@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+python-multipart
+pymupdf
+pdfplumber
+docx2txt
+spacy
+scikit-learn
+openai
+faiss-cpu
+chromadb
+langchain
+pydantic
+sqlalchemy
+psycopg2-binary  
+streamlit
