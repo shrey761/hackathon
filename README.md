@@ -1,93 +1,122 @@
-# 🚀 Automated Resume Relevance Check System  
+# Automated Resume Relevance Check System
 
-### Hackathon Project – Innomatics Research Labs  
-
----
-
-## 📌 Problem Statement  
-Recruiters at Innomatics Research Labs face **manual, inconsistent, and time-consuming** resume evaluations.  
-Every week, 18–20 job requirements attract thousands of resumes, but:  
-- Shortlisting is slow.  
-- Judgments vary by evaluator.  
-- Placement staff spend more time screening than guiding students.  
-
-**Goal → Build an AI-powered system that automatically evaluates resumes against job descriptions.**  
+*Hackathon Project – Innomatics Research Labs*
 
 ---
 
-## 🎯 Objectives  
-- Automate resume–JD evaluation at scale.  
-- Generate a **Relevance Score (0–100)**.  
-- Provide a **fit verdict (High / Medium / Low)**.  
-- Highlight **missing skills, certifications, or projects**.  
-- Give **personalized improvement feedback** to students.  
-- Store and display evaluations on a **web dashboard**.  
+## Problem Statement
+
+Recruiters face many challenges when screening resumes for job openings:
+
+- Manual resume evaluation is time‐consuming and inconsistent.  
+- Every week, 18–20 job requirements may get thousands of resumes to review.  
+- Placement staff spend more time filtering resumes than guiding students.  
+
+*Goal:* Build an AI‐powered system that automatically evaluates resumes against job descriptions (JDs), speeding up shortlisting, standardizing decisions, and providing useful feedback to candidates.
 
 ---
 
-## 🛠️ Proposed Solution  
-A hybrid **rule-based + AI-powered engine**:  
-- **Resume Parsing**: Extract text from PDF/DOCX.  
-- **JD Parsing**: Extract role title, must-have/good-to-have skills.  
-- **Relevance Analysis**:  
-  - Hard Match → Keyword & skill check.  
-  - Semantic Match → Embedding similarity + LLM reasoning.  
-- **Output**: Score, missing elements, and improvement tips.  
-- **Dashboard**: Placement team can search/filter resumes by role, location, and score.  
+## Objectives
+
+- Automate resume‑vs‑JD evaluation at scale.  
+- Generate a *Relevance Score* (0‑100).  
+- Provide a fit verdict: High / Medium / Low.  
+- Identify missing skills, certifications, or projects.  
+- Give personalized feedback for improvement.  
+- Store and display evaluations via a dashboard.
 
 ---
 
-## 🏗️ Workflow  
+## Proposed Solution
 
-1. **Job Requirement Upload** – Placement team uploads JD.  
-2. **Resume Upload** – Students upload PDF/DOCX resumes.  
-3. **Parsing** – Extract and normalize text from resumes & JDs.  
-4. **Relevance Analysis** – Hybrid scoring (hard + semantic).  
-5. **Output** – Relevance score, missing skills, verdict, suggestions.  
-6. **Storage** – Save results in database.  
-7. **Dashboard** – Search & filter candidates easily.  
+A hybrid system combining rule‑based matching with semantic/AI‑based analysis:
 
----
+1. *Resume Parsing*  
+   - Extract text from PDF / DOCX resumes.
 
-## ⚙️ Tech Stack  
+2. *Job Description (JD) Parsing*  
+   - Extract role title, must‑have & good‑to‑have skills, etc.
 
-### 🔹 Core (AI + Processing)  
-- **Python** – main programming language.  
-- **Text Extraction**: `PyMuPDF`, `pdfplumber`, `python-docx`, `docx2txt`.  
-- **NLP**: `spaCy`, `NLTK`.  
-- **Vector Store**: `Chroma` / `FAISS` / `Pinecone`.  
-- **Keyword Matching**: TF-IDF, BM25, Fuzzy matching.  
-- **Semantic Matching**: Embeddings + cosine similarity.  
-- **LLM Orchestration**: `LangChain`, `LangGraph`, `LangSmith`.  
-- **Models**: OpenAI GPT / Gemini / Claude / HuggingFace.  
+3. *Relevance Analysis*  
+   - *Hard Match*: Check keywords / exact skill match.  
+   - *Semantic Match*: Use embeddings, cosine similarity & possibly LLM reasoning to capture implicit semantic similarity.
 
-### 🔹 Backend  
-- **Flask** / **FastAPI** – REST APIs.  
+4. *Output*  
+   - Relevance score.  
+   - Missing skills / gaps.  
+   - Verdict (High / Medium / Low).  
+   - Suggestions & improvement tips for the candidate.
 
-### 🔹 Frontend  
-- **Streamlit (MVP)** – Upload, dashboard, review interface.  
-- (Optional) React.js for scalable production UI.  
-
-### 🔹 Database  
-- **SQLite / PostgreSQL** – Resume + JD + results storage.  
+5. *Dashboard*  
+   - For placement/HR team to upload JDs, resumes, search/filter candidates (by score, role, etc.), view results.
 
 ---
 
-## 📊 Output Example  
+## Workflow
 
-**For each resume vs job description:**  
-- ✅ Relevance Score: `82/100`  
-- 📌 Missing Skills: `Docker, CI/CD, Azure`  
-- 🏷 Verdict: `High Fit`  
-- 💡 Suggestions:  
-  - Add certification in cloud computing.  
-  - Showcase project using Docker containers.  
+1. Upload Job Description (JD)  
+2. Students upload their resume in PDF / DOCX format  
+3. System parses and normalizes text from resumes & JDs  
+4. Run relevance scoring (hard + semantic methods)  
+5. Produce outputs: score, missing items, verdict, suggestions  
+6. Store results in database  
+7. Dashboard to browse/search/filter results  
 
 ---
 
-## 🚀 How to Run Locally  
+## Tech Stack
 
-1. **Clone Repo**  
+| Layer | Technologies |
+|-------|--------------|
+| *Core / AI & NLP* | Python; text extraction via PyMuPDF, pdfplumber, python‑docx, docx2txt |
+| | NLP: spaCy, NLTK |
+| | Embeddings / Semantic matching: vector store (Chroma / FAISS / Pinecone), cosine similarity |
+| | Keyword matching: TF‑IDF, BM25, fuzzy matching |
+| | Optional LLM integration: (e.g. via LangChain, etc.) for reasoning or enhanced suggestions |
+| *Backend* | Flask or FastAPI (REST APIs) |
+| *Frontend / UI* | Streamlit (MVP); optional React.js for more advanced UI |
+| *Storage / Database* | SQLite / PostgreSQL for storing resumes, JDs, evaluation results |
+
+---
+
+## Output Example
+
+Here’s what a sample evaluation might look like:
+
+- *Relevance Score:* 82 / 100  
+- *Verdict:* High Fit  
+- *Missing Skills:* Docker, CI/CD, Azure  
+- *Suggestions:*  
+  • Add certification in cloud computing  
+  • Include a project using Docker containers  
+  • Highlight continuous integration / deployment experience  
+
+---
+
+## Installation & Running Locally
+
+> *Prerequisites:* Python 3.8+, git, (optionally) virtual environment
+
 ```bash
-git clone https://github.com/<your-username>/resume-relevance-check.git
-cd resume-relevance-check
+# 1. Clone the repository
+git clone https://github.com/shrey761/hackathon.git
+cd hackathon
+
+# 2. Create and activate a virtual environment (recommended)
+python ‑m venv venv
+source venv/bin/activate   # on Unix / Mac
+# or
+venv\Scripts\activate      # on Windows
+
+# 3. Install required dependencies
+pip install ‑r requirements.txt
+
+# 4. Obtain / setup any additional resources:
+#    ‑ For spaCy models: e.g. python ‑m spacy download en_core_web_sm
+#    ‑ Setting up vector store or embedding model (if used)
+#    ‑ If using any external APIs / LLMs, set API keys or credentials
+
+# 5. Run the app
+streamlit run streamlit_app.py
+
+# 6. Use via the UI: upload JD / resume to test, view results, etc.
