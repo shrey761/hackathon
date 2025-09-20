@@ -15,3 +15,8 @@ sqlalchemy
 psycopg2-binary  
 streamlit
 spacy
+PyPDF2
+docx2txt
+matplotlib
+wordcloud
+scikit-learn

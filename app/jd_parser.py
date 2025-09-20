@@ -1,57 +1,49 @@
+import re
 import spacy
 
-# Load spaCy model once
+# Load spaCy model (small English NLP model)
 nlp = spacy.load("en_core_web_sm")
 
-# Define sample skill, cert, and degree keywords
+# Some predefined skill keywords (you can expand this list)
 SKILL_KEYWORDS = [
-    "python", "java", "sql", "machine learning", "deep learning",
-    "data analysis", "django", "flask", "nlp", "aws", "docker", "kubernetes"
+    "python", "java", "c++", "c#", "sql", "javascript", "html", "css",
+    "machine learning", "deep learning", "nlp", "data analysis",
+    "excel", "power bi", "tableau", "aws", "azure", "gcp", "docker",
+    "kubernetes", "git", "django", "flask", "react", "angular"
 ]
 
-CERTIFICATIONS = [
-    "aws certified", "azure certified", "gcp certified", "pmp", "cfa"
-]
+def parse_jd(jd_text):
+    """
+    Parses a job description to extract must-have and good-to-have skills.
+    Returns: (jd_text_only, must_have_skills, good_to_have_skills)
+    """
 
-DEGREES = [
-    "bachelor", "master", "phd", "b.tech", "m.tech", "bsc", "msc"
-]
+    jd_text = jd_text.lower()
+    doc = nlp(jd_text)
 
-def parse_jd(jd_text: str):
-    doc = nlp(jd_text.lower())
+    must_have = set()
+    good_to_have = set()
 
-    must_have = []
-    nice_to_have = []
-    education = []
-    certifications = []
-    years_experience = None
+    # --- Detect years of experience ---
+    experience = re.findall(r"(\d+)\+?\s+years?", jd_text)
+    if experience:
+        must_have.add(f"{experience[0]}+ years experience")
 
-    # Extract skills (simple keyword scan)
-    for skill in SKILL_KEYWORDS:
-        if skill in jd_text.lower():
-            must_have.append(skill)
-
-    # Extract certifications
-    for cert in CERTIFICATIONS:
-        if cert in jd_text.lower():
-            certifications.append(cert)
-
-    # Extract degrees
-    for degree in DEGREES:
-        if degree in jd_text.lower():
-            education.append(degree)
-
-    # Extract years of experience (regex-like using spaCy)
+    # --- Match skills from keyword list ---
     for token in doc:
-        if token.like_num:
-            next_token = token.nbor(1) if token.i + 1 < len(doc) else None
-            if next_token and next_token.text.lower() in ["years", "yrs", "year"]:
-                years_experience = int(token.text)
+        token_text = token.text.lower()
+        if token_text in SKILL_KEYWORDS:
+            must_have.add(token_text)
 
-    return {
-        "must_have": must_have,
-        "nice_to_have": nice_to_have,   # can extend later
-        "education": education,
-        "certifications": certifications,
-        "experience_required": years_experience
-    }
+    # --- Phrases like "nice to have", "preferred" → good-to-have ---
+    preferred_section = re.findall(r"(?:nice to have|preferred|optional).*", jd_text)
+    for section in preferred_section:
+        for skill in SKILL_KEYWORDS:
+            if skill in section:
+                good_to_have.add(skill)
+
+    # --- Guarantee at least something is returned ---
+    if not must_have and not good_to_have:
+        must_have.add("general programming experience")
+
+    return jd_text, list(must_have), list(good_to_have)
