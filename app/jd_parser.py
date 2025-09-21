@@ -1,46 +1,47 @@
 import re
-import spacy
-nlp=spacy.load("en_core_web_sm")
-# Some predefined skill keywords (you can expand this list)
-SKILL_KEYWORDS = [
-    "python", "java", "c++", "c#", "sql", "javascript", "html", "css",
-    "machine learning", "deep learning", "nlp", "data analysis",
-    "excel", "power bi", "tableau", "aws", "azure", "gcp", "docker",
-    "kubernetes", "git", "django", "flask", "react", "angular"
-]
 
-def parse_jd(jd_text):
+def parse_jd(text: str):
     """
-    Parses a job description to extract must-have and good-to-have skills.
-    Returns: (jd_text_only, must_have_skills, good_to_have_skills)
+    Extract must-have and good-to-have skills from JD using simple keyword rules.
     """
 
-    jd_text = jd_text.lower()
-    doc = nlp(jd_text)
+    # Normalize text
+    jd_text = text.lower()
 
-    must_have = set()
-    good_to_have = set()
+    # Must-have keywords
+    must_patterns = [
+        r"\bmust have\b",
+        r"\brequired\b",
+        r"\bminimum\b",
+        r"\bessential\b",
+        r"\bstrong knowledge of\b"
+    ]
 
-    # --- Detect years of experience ---
-    experience = re.findall(r"(\d+)\+?\s+years?", jd_text)
-    if experience:
-        must_have.add(f"{experience[0]}+ years experience")
+    # Good-to-have keywords
+    good_patterns = [
+        r"\bnice to have\b",
+        r"\bpreferred\b",
+        r"\boptional\b",
+        r"\bgood to have\b",
+        r"\bplus\b"
+    ]
 
-    # --- Match skills from keyword list ---
-    for token in doc:
-        token_text = token.text.lower()
-        if token_text in SKILL_KEYWORDS:
-            must_have.add(token_text)
+    must_have_skills = []
+    good_to_have_skills = []
 
-    # --- Phrases like "nice to have", "preferred" → good-to-have ---
-    preferred_section = re.findall(r"(?:nice to have|preferred|optional).*", jd_text)
-    for section in preferred_section:
-        for skill in SKILL_KEYWORDS:
-            if skill in section:
-                good_to_have.add(skill)
+    for pattern in must_patterns:
+        matches = re.findall(pattern + r".*?(\w+)", jd_text)
+        must_have_skills.extend(matches)
 
-    # --- Guarantee at least something is returned ---
-    if not must_have and not good_to_have:
-        must_have.add("general programming experience")
+    for pattern in good_patterns:
+        matches = re.findall(pattern + r".*?(\w+)", jd_text)
+        good_to_have_skills.extend(matches)
 
-    return jd_text, list(must_have), list(good_to_have)
+    # If nothing is detected, fallback: pick common tech words
+    tech_words = ["python", "java", "c++", "sql", "aws", "docker", "react", "node", "tensorflow", "nlp"]
+
+    for word in tech_words:
+        if word in jd_text and word not in must_have_skills and word not in good_to_have_skills:
+            good_to_have_skills.append(word)
+
+    return text, list(set(must_have_skills)), list(set(good_to_have_skills))
