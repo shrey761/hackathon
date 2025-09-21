@@ -1,15 +1,13 @@
 import re
 import spacy
+import subprocess
 
-def get_nlp_model():
-    try:
-        return spacy.load("en_core_web_sm")
-    except OSError:
-        from spacy.cli import download
-        download("en_core_web_sm")
-        return spacy.load("en_core_web_sm")
-
-nlp = get_nlp_model()
+# Try loading the model, download if missing
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+    nlp = spacy.load("en_core_web_sm")
 
 # Some predefined skill keywords (you can expand this list)
 SKILL_KEYWORDS = [
