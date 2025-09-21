@@ -4,21 +4,13 @@ import matplotlib.pyplot as plt
 import zipfile
 from io import BytesIO
 from fpdf import FPDF
+
 # Import from app folder
 from app.resume_parser import extract_text_from_pdf_or_docx
 from app.jd_parser import parse_jd
 from app.scoring import compute_similarity
 from app.feedback import generate_feedback
 from app.database import save_result, load_results
-import spacy
-
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    from spacy.cli import download
-    download("en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
-
 
 
 # ===============================
@@ -34,11 +26,8 @@ def get_verdict(score_percent: float) -> str:
 
 
 # ===============================
-# PDF Generation
+# PDF Generation (fixed for BytesIO)
 # ===============================
-from fpdf import FPDF
-from io import BytesIO
-
 def generate_pdf_report(resume_name, score, verdict, details, feedback):
     pdf = FPDF()
     pdf.add_page()
@@ -75,8 +64,10 @@ def generate_pdf_report(resume_name, score, verdict, details, feedback):
     pdf.set_font("Arial", "", 11)
     pdf.multi_cell(0, 10, feedback)
 
+    # ✅ Safe BytesIO export
     buffer = BytesIO()
-    pdf.output(buffer)
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+    buffer.write(pdf_bytes)
     buffer.seek(0)
     return buffer
 
@@ -100,7 +91,7 @@ st.sidebar.subheader("How to Use")
 st.sidebar.markdown("""
 1. 📋 Paste the Job Description  
 2. 📂 Upload Resume(s) in PDF/DOCX  
-3. 🔍 Click *Analyze Resume(s)*  
+3. 🔍 Click Analyze Resume(s)  
 4. 📊 View detailed results or batch comparison  
 5. 💾 Download reports (PDF, CSV, ZIP)  
 6. 📊 Use Dashboard to see stored results  
@@ -127,60 +118,61 @@ if st.button("🔍 Analyze Resume(s)"):
         results, pdf_files = [], []
 
         for uploaded_file in uploaded_files:
+            try:
+                resume_text = extract_text_from_pdf_or_docx(uploaded_file)
+                score, details = compute_similarity(resume_text, jd_text_only)
+                score_percent = round(float(score) * 100, 2)
+                verdict = get_verdict(score_percent)
+
+                feedback = generate_feedback(
+                    resume_text, jd_text_only, must_have_skills, good_to_have_skills, details
+                )
+
+                results.append({
+                    "Resume": uploaded_file.name,
+                    "Relevance Score (%)": score_percent,
+                    "Verdict": verdict,
+                    "Missing Must-Have": ", ".join(details.get("missing_must_have", [])) or "None",
+                    "Missing Good-to-Have": ", ".join(details.get("missing_good_to_have", [])) or "None",
+                    "Feedback": feedback,
+                })
+
+                save_result(uploaded_file.name, score_percent, verdict, feedback)
+
                 try:
-                    resume_text = extract_text_from_pdf_or_docx(uploaded_file)
-                    score, details = compute_similarity(resume_text, jd_text_only)
-                    score_percent = round(float(score) * 100, 2)
-                    verdict = get_verdict(score_percent)
-
-                    feedback = generate_feedback(
-                        resume_text, jd_text_only, must_have_skills, good_to_have_skills, details
+                    pdf_buffer = generate_pdf_report(
+                        uploaded_file.name,
+                        score_percent,
+                        verdict,
+                        details,
+                        feedback
                     )
-
-                    results.append({
-                        "Resume": uploaded_file.name,
-                        "Relevance Score (%)": score_percent,
-                        "Verdict": verdict,
-                        "Missing Must-Have": ", ".join(details.get("missing_must_have", [])) or "None",
-                        "Missing Good-to-Have": ", ".join(details.get("missing_good_to_have", [])) or "None",
-                        "Feedback": feedback,
-                    })
-
-                    save_result(uploaded_file.name, score_percent, verdict, feedback)
-
-                    try:
-                        pdf_buffer = generate_pdf_report(
-                            uploaded_file.name,
-                            score_percent,
-                            verdict,
-                            details,
-                            feedback
-                        )
-                        pdf_files.append((
-                            uploaded_file.name.replace(".pdf", "").replace(".docx", "") + "_report.pdf",
-                            pdf_buffer
-                        ))
-                    except Exception as e:
-        # Always generate a fallback PDF explaining the error
-                        error_feedback = f"Could not generate full report. Error: {str(e)}"
-                        pdf_buffer = generate_pdf_report(
-                            uploaded_file.name,
-                            score_percent if 'score_percent' in locals() else "N/A",
-                            verdict if 'verdict' in locals() else "Error",
-                            {},
-                            error_feedback
-                        )
-                        pdf_files.append((
-                            uploaded_file.name.replace(".pdf", "").replace(".docx", "") + "_error_report.pdf",
-                            pdf_buffer
-                        ))
+                    pdf_files.append((
+                        uploaded_file.name.replace(".pdf", "").replace(".docx", "") + "_report.pdf",
+                        pdf_buffer
+                    ))
                 except Exception as e:
-                    results.append({
-                        "Resume":uploaded_file.name,
-                        "Relevance Score(%)":"Error",
-                        "Verdict":"Error",
-                        "Feedback":f"Could not process{uploaded_file.name}:{e}"
-                    })
+                    # Always generate a fallback PDF explaining the error
+                    error_feedback = f"Could not generate full report. Error: {str(e)}"
+                    pdf_buffer = generate_pdf_report(
+                        uploaded_file.name,
+                        score_percent if 'score_percent' in locals() else "N/A",
+                        verdict if 'verdict' in locals() else "Error",
+                        {},
+                        error_feedback
+                    )
+                    pdf_files.append((
+                        uploaded_file.name.replace(".pdf", "").replace(".docx", "") + "_error_report.pdf",
+                        pdf_buffer
+                    ))
+            except Exception as e:
+                results.append({
+                    "Resume": uploaded_file.name,
+                    "Relevance Score (%)": "Error",
+                    "Verdict": "Error",
+                    "Feedback": f"Could not process {uploaded_file.name}: {e}"
+                })
+
         # ===============================
         # Single Resume Mode
         # ===============================
@@ -216,8 +208,8 @@ if st.button("🔍 Analyze Resume(s)"):
 
             # PDF download
             if pdf_files:
-               pdf_name, pdf_buffer = pdf_files[0]
-               st.download_button("📥 Download PDF Report", data=pdf_buffer, file_name=pdf_name, mime="application/pdf")
+                pdf_name, pdf_buffer = pdf_files[0]
+                st.download_button("📥 Download PDF Report", data=pdf_buffer, file_name=pdf_name, mime="application/pdf")
             else:
                 st.warning("⚠ No PDF report was generated for this resume.")
 
