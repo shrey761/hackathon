@@ -8,3 +8,5 @@ pdfplumber==0.11.0
 nltk==3.8.1
 Pillow==9.4.0
 sqlalchemy==2.0.21
+setuptools==68.0.0
+wheel==0.41.2
