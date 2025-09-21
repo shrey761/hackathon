@@ -41,6 +41,7 @@ huggingface-hub
 spacy
 matplotlib
 pandas
+sqlalchemy
 numpy
 scikit-learn
 >>>>>>> 301d9f3 (FINAL COMMIT)
