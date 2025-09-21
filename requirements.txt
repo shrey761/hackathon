@@ -27,8 +27,6 @@ wordcloud
 <<<<<<< HEAD
 reportlab
 spacy
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
-=======
 scikit-learn
 pandas
 python-docx
@@ -47,3 +45,13 @@ scikit-learn
 >>>>>>> 301d9f3 (FINAL COMMIT)
 spacy
 en-core-web-sm==3.5.0
+streamlit==1.25.0
+pandas==2.0.3
+matplotlib==3.7.2
+spacy==3.5.3
+PyPDF2==3.0.1
+python-docx==0.8.11
+reportlab==3.6.12
+sqlalchemy==2.0.21
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0.tar.gz
+=======

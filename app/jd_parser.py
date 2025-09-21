@@ -1,14 +1,6 @@
 import re
 import spacy
-import subprocess
-
-# Try loading the model, download if missing
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
-    nlp = spacy.load("en_core_web_sm")
-
+nlp=spacy.load("en_core_web_sm")
 # Some predefined skill keywords (you can expand this list)
 SKILL_KEYWORDS = [
     "python", "java", "c++", "c#", "sql", "javascript", "html", "css",
