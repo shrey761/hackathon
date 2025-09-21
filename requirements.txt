@@ -1,26 +1,35 @@
-pdfplumber
-docx2txt
-faiss-cpu
-chromadb
-langchain
-pydantic
-psycopg2-binary
-PyPDF2==3.0.1
-docx2txt
-requests
-nltk
-pdfminer.six
-sentence-transformers
-wordcloud
-python-docx==0.8.11
-transformers
-torch
-huggingface-hub
-numpy
-scikit-learn
+# Core dependencies
 streamlit==1.25.0
 pandas==2.0.3
+numpy
+scikit-learn
 matplotlib==3.7.2
-fpdf2==2.7.5
+requests
 sqlalchemy==2.0.21
-pillow==9.5.0
+
+# PDF and DOCX handling
+pdfplumber
+PyPDF2==3.0.1
+python-docx==0.8.11
+docx2txt
+fpdf2==2.7.5
+
+# NLP and AI
+nltk
+transformers
+torch
+sentence-transformers
+huggingface-hub
+
+# LangChain & vector DB
+langchain
+chromadb
+faiss-cpu
+
+# Other utilities
+wordcloud
+pydantic
+psycopg2-binary
+
+# Pillow fix for Streamlit Cloud
+pillow>=9.0.0,<10.0.0
