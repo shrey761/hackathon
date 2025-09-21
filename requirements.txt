@@ -24,6 +24,25 @@ sentence-transformers
 
 matplotlib
 wordcloud
+<<<<<<< HEAD
 reportlab
+spacy
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
+=======
+scikit-learn
+pandas
+python-docx
+reportlab
+PyMuPDF
+streamlit
+transformers
+torch
+huggingface-hub
+spacy
+matplotlib
+pandas
+numpy
+scikit-learn
+>>>>>>> 301d9f3 (FINAL COMMIT)
 spacy
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl

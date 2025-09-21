@@ -1,8 +1,13 @@
 import re
 import spacy
 
-# Load spaCy model (small English NLP model)
-nlp = spacy.load("en_core_web_sm")
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    # Download automatically if missing
+    from spacy.cli import download
+    download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
 
 # Some predefined skill keywords (you can expand this list)
 SKILL_KEYWORDS = [
