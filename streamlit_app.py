@@ -3,9 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import zipfile
 from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-
+from fpdf import FPDF
 # Import from app folder
 from app.resume_parser import extract_text_from_pdf_or_docx
 from app.jd_parser import parse_jd
@@ -38,58 +36,47 @@ def get_verdict(score_percent: float) -> str:
 # ===============================
 # PDF Generation
 # ===============================
+from fpdf import FPDF
+from io import BytesIO
+
 def generate_pdf_report(resume_name, score, verdict, details, feedback):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(200, 10, "Resume Relevance Report", ln=True, align="C")
+
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(200, 10, f"Resume: {resume_name}", ln=True)
+    pdf.cell(200, 10, f"Relevance Score: {score}%", ln=True)
+    pdf.cell(200, 10, f"Suitability Verdict: {verdict}", ln=True)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(200, 10, "✅ Must-Have Skills (Covered):", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.multi_cell(0, 10, ", ".join(details.get("covered_must_have", [])) or "None")
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(200, 10, "❌ Missing Must-Have Skills:", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.multi_cell(0, 10, ", ".join(details.get("missing_must_have", [])) or "None")
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(200, 10, "🌟 Good-to-Have Skills (Covered):", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.multi_cell(0, 10, ", ".join(details.get("covered_good_to_have", [])) or "None")
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(200, 10, "⚠ Missing Good-to-Have Skills:", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.multi_cell(0, 10, ", ".join(details.get("missing_good_to_have", [])) or "None")
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(200, 10, "💡 Feedback:", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.multi_cell(0, 10, feedback)
+
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, height - 50, "Resume Relevance Report")
-
-    c.setFont("Helvetica", 12)
-    c.drawString(50, height - 100, f"Resume: {resume_name}")
-    c.drawString(50, height - 120, f"Relevance Score: {score if score else 'N/A'}%")
-    c.drawString(50, height - 140, f"Suitability Verdict: {verdict or 'N/A'}")
-
-    # Defensive handling
-    details = details or {}
-    feedback = feedback or "No feedback generated."
-
-    # Must-Have Covered
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 180, "✅ Must-Have Skills (Covered):")
-    c.setFont("Helvetica", 11)
-    c.drawString(70, height - 200, ", ".join(details.get("covered_must_have", [])) or "None")
-
-    # Missing Must-Have
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 230, "❌ Missing Must-Have Skills:")
-    c.setFont("Helvetica", 11)
-    c.drawString(70, height - 250, ", ".join(details.get("missing_must_have", [])) or "None")
-
-    # Good-to-Have Covered
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 280, "🌟 Good-to-Have Skills (Covered):")
-    c.setFont("Helvetica", 11)
-    c.drawString(70, height - 300, ", ".join(details.get("covered_good_to_have", [])) or "None")
-
-    # Missing Good-to-Have
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 330, "⚠ Missing Good-to-Have Skills:")
-    c.setFont("Helvetica", 11)
-    c.drawString(70, height - 350, ", ".join(details.get("missing_good_to_have", [])) or "None")
-
-    # Feedback
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 380, "💡 Feedback:")
-    c.setFont("Helvetica", 11)
-    text_obj = c.beginText(70, height - 400)
-    for line in feedback.split("\n"):
-        text_obj.textLine(line.strip())
-    c.drawText(text_obj)
-
-    c.showPage()
-    c.save()
+    pdf.output(buffer)
     buffer.seek(0)
     return buffer
 
